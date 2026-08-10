@@ -111,7 +111,7 @@ function App() {
     if (!activeProject) return;
     const chaptersForExport = activeProject.chapters.map((chapter) => ({ ...chapter, content: savedChapters.find((item) => item.id === chapter.id)?.content || "" }));
     const markdown = `# ${activeProject.title}\n\n${chaptersForExport.map((chapter) => `## 第${chapter.id}章 ${chapter.title}\n\n${chapter.content || "（尚未保存正文）"}`).join("\n\n")}`;
-    const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" })); link.download = `${activeProject.title}.md`; link.click(); URL.revokeObjectURL(link.href); setNotice("已导出 Markdown 文件。");
+    const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" })); link.download = `${activeProject.title}.md`; link.click(); window.setTimeout(() => URL.revokeObjectURL(link.href), 0); setNotice("已导出 Markdown 文件。");
   };
 
   const createItem = () => {
