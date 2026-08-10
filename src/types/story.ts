@@ -29,6 +29,8 @@ export type SavedChapter = {
   savedAt: string;
 };
 
+export type ChapterVersion = SavedChapter & { wordCount: number };
+
 export type StoryBeat = {
   title: string;
   detail: string;
