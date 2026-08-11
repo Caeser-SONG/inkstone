@@ -64,6 +64,12 @@ function App() {
     return () => window.clearInterval(timer);
   }, [savedChapters, modelConfig]);
 
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 3200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const selectProject = (projectId: string) => {
     const project = projects.find((item) => item.id === projectId); if (!project) return;
     saveActiveProjectId(projectId); setActiveProjectId(projectId); setActiveChapter(project.chapters[0]?.id || 0);
