@@ -31,6 +31,8 @@ export type SavedChapter = {
 
 export type ChapterVersion = SavedChapter & { wordCount: number };
 
+export type LibraryItem = { id: string; title: string; url: string; notes: string; sourceText?: string; addedAt: string };
+
 export type StoryBeat = {
   title: string;
   detail: string;

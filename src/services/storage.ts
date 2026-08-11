@@ -1,5 +1,5 @@
 import { chapters as demoChapters } from "../data/demo";
-import type { ChapterVersion, ModelConfig, NovelProject, SavedChapter, StoryAnalysis } from "../types/story";
+import type { ChapterVersion, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis } from "../types/story";
 
 const modelConfigKey = "inkstone.model-config";
 const projectsKey = "inkstone.projects";
@@ -54,6 +54,7 @@ export function saveActiveProjectId(projectId: string) {
 const savedChaptersKey = (projectId: string) => `inkstone.project.${projectId}.saved-chapters`;
 const storyAnalysisKey = (projectId: string) => `inkstone.project.${projectId}.story-analysis`;
 const chapterHistoryKey = (projectId: string, chapterId: number) => `inkstone.project.${projectId}.chapter.${chapterId}.history`;
+const libraryKey = (projectId: string) => `inkstone.project.${projectId}.library`;
 
 export function readSavedChapters(projectId: string): SavedChapter[] {
   const scoped = readJson<SavedChapter[] | null>(savedChaptersKey(projectId), null);
@@ -82,3 +83,6 @@ export function saveChapterVersion(projectId: string, version: ChapterVersion) {
   const next = [version, ...history].slice(0, 30);
   localStorage.setItem(chapterHistoryKey(projectId, version.id), JSON.stringify(next));
 }
+
+export function readLibrary(projectId: string) { return readJson<LibraryItem[]>(libraryKey(projectId), []); }
+export function saveLibrary(projectId: string, items: LibraryItem[]) { localStorage.setItem(libraryKey(projectId), JSON.stringify(items)); }

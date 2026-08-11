@@ -1,16 +1,19 @@
-import { BookOpen, Compass, FolderOpen, UsersThree } from "@phosphor-icons/react";
-import type { StoryAnalysis, View } from "../types/story";
-
+import { useState } from "react";
+import { BookOpen, Compass, MagnifyingGlass, Plus, UsersThree } from "@phosphor-icons/react";
+import { readLibrary, saveLibrary } from "../services/storage";
+import type { LibraryItem, StoryAnalysis, View } from "../types/story";
 type IconType = typeof BookOpen;
 
-export function WorkspaceView({ view, onWrite, analysis }: { view: Exclude<View, "write">; onWrite: () => void; analysis: StoryAnalysis | null }) {
-  const content: Record<Exclude<View, "write">, { icon: IconType; title: string; detail: string; action: string }> = {
-    outline: { icon: Compass, title: "让故事线保持向前", detail: "从卷到场景拆解叙事目标，AI 会在章节完成后标记推进、冲突与待回收伏笔。", action: "查看第一卷故事线" },
-    characters: { icon: UsersThree, title: "角色不是散落的名字", detail: "将人物动机、秘密、关系和状态放在同一张可检索的关系网中。", action: "打开人物关系图" },
-    library: { icon: FolderOpen, title: "为世界观建立可靠资料库", detail: "收集地点、设定、灵感和参考文本。生成时只召回与你正在写的章节有关的内容。", action: "新建资料卡" },
-  };
-  const item = content[view]; const Icon = item.icon;
-  const outlineItems = analysis?.beats.length ? analysis.beats : [{ title: "尚未生成故事线", detail: "保存正文后由故事 Agent 整理" }];
-  const characterItems = analysis?.characters.length ? analysis.characters : [];
-  return <div className="empty-workspace"><div className="empty-icon"><Icon size={34} weight="duotone" /></div><span>演示项目 · 归舟书局</span><h2>{item.title}</h2><p>{item.detail}</p><button className="primary-action" onClick={view === "outline" || view === "characters" ? undefined : onWrite}>{item.action}</button>{view === "outline" && <div className="outline-preview">{outlineItems.map((beat, index) => <div key={`${beat.title}-${index}`}><b>{beat.title}</b><span>{beat.detail}</span></div>)}</div>}{view === "characters" && <div className="outline-preview">{characterItems.length ? characterItems.map((person) => <div key={person.name}><b>{person.name}</b><span>{person.role} · {person.state}</span></div>) : <div><b>尚未识别人物</b><span>保存正文后由故事 Agent 整理</span></div>}</div>}</div>;
+function LibraryView({ projectId }: { projectId: string }) {
+  const [query, setQuery] = useState(""); const [title, setTitle] = useState(""); const [url, setUrl] = useState(""); const [notes, setNotes] = useState(""); const [sourceText, setSourceText] = useState(""); const [items, setItems] = useState<LibraryItem[]>(() => readLibrary(projectId));
+  const search = () => { if (query.trim()) window.open(`https://www.bing.com/search?q=${encodeURIComponent(`${query} 小说 作者 简介`)}`, "_blank", "noopener,noreferrer"); };
+  const add = () => { if (!title.trim()) return; const item: LibraryItem = { id: `source-${Date.now()}`, title: title.trim(), url: url.trim(), notes: notes.trim(), sourceText: sourceText.trim() || undefined, addedAt: new Date().toISOString() }; const next = [item, ...items]; setItems(next); saveLibrary(projectId, next); setTitle(""); setUrl(""); setNotes(""); setSourceText(""); };
+  return <div className="library-workspace"><h2>资料库</h2><p>检索公开书目与评论，收藏链接；仅导入你拥有分析权的文本。</p><div className="library-search"><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") search(); }} placeholder="搜索书名、作者或题材" /><button onClick={search}><MagnifyingGlass size={17} />网络搜索</button></div><div className="library-form"><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="资料标题（必填）" /><input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="公开链接（可选）" /><textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="你的拆书笔记或摘要" /><textarea value={sourceText} onChange={(event) => setSourceText(event.target.value)} placeholder="粘贴你拥有权利的文本（可选），系统只做字数/段落分析" /><button className="primary-action" onClick={add}><Plus size={16} />收藏资料</button></div><div className="library-items">{items.map((item) => <article key={item.id}><b>{item.title}</b>{item.url && <a href={item.url} target="_blank" rel="noreferrer">打开来源</a>}<p>{item.notes || "无笔记"}</p>{item.sourceText && <small>授权文本：{item.sourceText.replace(/\s/g, "").length.toLocaleString()} 字，{item.sourceText.split(/\n{2,}/).filter(Boolean).length} 段</small>}</article>)}</div></div>;
+}
+
+export function WorkspaceView({ view, onWrite, analysis, projectId }: { view: Exclude<View, "write">; onWrite: () => void; analysis: StoryAnalysis | null; projectId: string }) {
+  if (view === "library") return <LibraryView projectId={projectId} />;
+  const content: Record<Exclude<View, "write" | "library">, { icon: IconType; title: string; detail: string }> = { outline: { icon: Compass, title: "让故事线保持向前", detail: "从卷到场景拆解叙事目标，AI 会在章节完成后标记推进、冲突与待回收伏笔。" }, characters: { icon: UsersThree, title: "角色不是散落的名字", detail: "将人物动机、秘密、关系和状态放在同一张可检索的关系网中。" } };
+  const item = content[view]; const Icon = item.icon; const outlineItems = analysis?.beats.length ? analysis.beats : [{ title: "尚未生成故事线", detail: "保存正文后由故事 Agent 整理" }]; const characterItems = analysis?.characters.length ? analysis.characters : [];
+  return <div className="empty-workspace"><div className="empty-icon"><Icon size={34} weight="duotone" /></div><h2>{item.title}</h2><p>{item.detail}</p><button className="primary-action" onClick={onWrite}>返回写作</button><div className="outline-preview">{view === "outline" ? outlineItems.map((beat, index) => <div key={`${beat.title}-${index}`}><b>{beat.title}</b><span>{beat.detail}</span></div>) : characterItems.map((person) => <div key={person.name}><b>{person.name}</b><span>{person.role} · {person.state}</span></div>)}</div></div>;
 }
