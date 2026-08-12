@@ -33,6 +33,22 @@ export type ChapterVersion = SavedChapter & { wordCount: number };
 
 export type LibraryItem = { id: string; title: string; url: string; notes: string; sourceText?: string; addedAt: string };
 
+export type WritingSkill = {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  enabled: boolean;
+  source: "builtin" | "installed";
+  installedAt: string;
+};
+
+export type LayeredMemory = {
+  project: string;
+  working: string;
+  retrieved: string;
+};
+
 export type StoryBeat = {
   title: string;
   detail: string;
