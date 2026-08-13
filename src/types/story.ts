@@ -55,6 +55,26 @@ export type EditorPreferences = {
   fontSize: 15 | 16 | 17 | 18 | 19 | 20;
 };
 
+export type ActiveWritingSession = {
+  id: string;
+  chapterId: number;
+  startedAt: string;
+  startWordCount: number;
+  accruedSeconds: number;
+  resumedAt?: string;
+  status: "running" | "paused";
+};
+
+export type WritingSession = {
+  id: string;
+  chapterId: number;
+  startedAt: string;
+  endedAt: string;
+  startWordCount: number;
+  endWordCount: number;
+  activeSeconds: number;
+};
+
 export type StoryBeat = {
   title: string;
   detail: string;

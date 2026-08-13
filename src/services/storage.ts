@@ -1,5 +1,5 @@
 import { chapters as demoChapters } from "../data/demo";
-import type { ChapterVersion, EditorPreferences, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WritingSkill } from "../types/story";
+import type { ActiveWritingSession, ChapterVersion, EditorPreferences, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WritingSession, WritingSkill } from "../types/story";
 
 const modelConfigKey = "inkstone.model-config";
 const projectsKey = "inkstone.projects";
@@ -57,6 +57,8 @@ const chapterHistoryKey = (projectId: string, chapterId: number) => `inkstone.pr
 const libraryKey = (projectId: string) => `inkstone.project.${projectId}.library`;
 const skillsKey = (projectId: string) => `inkstone.project.${projectId}.skills`;
 const editorPreferencesKey = (projectId: string) => `inkstone.project.${projectId}.editor-preferences`;
+const activeWritingSessionKey = (projectId: string) => `inkstone.project.${projectId}.active-writing-session`;
+const writingSessionsKey = (projectId: string) => `inkstone.project.${projectId}.writing-sessions`;
 const defaultEditorPreferences: EditorPreferences = { paragraphStyle: "body", fontFamily: "songti", fontSize: 17 };
 
 export function readSavedChapters(projectId: string): SavedChapter[] {
@@ -93,3 +95,7 @@ export function readSkills(projectId: string) { return readJson<WritingSkill[]>(
 export function saveSkills(projectId: string, skills: WritingSkill[]) { localStorage.setItem(skillsKey(projectId), JSON.stringify(skills)); }
 export function readEditorPreferences(projectId: string) { return { ...defaultEditorPreferences, ...readJson<Partial<EditorPreferences>>(editorPreferencesKey(projectId), {}) }; }
 export function saveEditorPreferences(projectId: string, preferences: EditorPreferences) { localStorage.setItem(editorPreferencesKey(projectId), JSON.stringify(preferences)); }
+export function readActiveWritingSession(projectId: string) { return readJson<ActiveWritingSession | null>(activeWritingSessionKey(projectId), null); }
+export function saveActiveWritingSession(projectId: string, session: ActiveWritingSession | null) { if (session) localStorage.setItem(activeWritingSessionKey(projectId), JSON.stringify(session)); else localStorage.removeItem(activeWritingSessionKey(projectId)); }
+export function readWritingSessions(projectId: string) { return readJson<WritingSession[]>(writingSessionsKey(projectId), []); }
+export function saveWritingSessions(projectId: string, sessions: WritingSession[]) { localStorage.setItem(writingSessionsKey(projectId), JSON.stringify(sessions.slice(0, 60))); }
