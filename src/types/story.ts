@@ -1,4 +1,4 @@
-export type View = "write" | "outline" | "characters" | "library";
+export type View = "write" | "outline" | "characters" | "library" | "workshop";
 
 export type Chapter = {
   id: number;
@@ -73,6 +73,22 @@ export type WritingSession = {
   startWordCount: number;
   endWordCount: number;
   activeSeconds: number;
+};
+
+export type WorkshopAgentRole = "writer" | "editor" | "reader";
+
+export type WorkshopMessage = {
+  id: string;
+  role: WorkshopAgentRole;
+  phase: "proposal" | "edit" | "response" | "revision";
+  content: string;
+};
+
+export type WorkshopRound = {
+  id: string;
+  brief: string;
+  createdAt: string;
+  messages: WorkshopMessage[];
 };
 
 export type StoryBeat = {

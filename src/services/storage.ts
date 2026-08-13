@@ -1,5 +1,5 @@
 import { chapters as demoChapters } from "../data/demo";
-import type { ActiveWritingSession, ChapterVersion, EditorPreferences, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WritingSession, WritingSkill } from "../types/story";
+import type { ActiveWritingSession, ChapterVersion, EditorPreferences, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WorkshopRound, WritingSession, WritingSkill } from "../types/story";
 
 const modelConfigKey = "inkstone.model-config";
 const projectsKey = "inkstone.projects";
@@ -59,6 +59,7 @@ const skillsKey = (projectId: string) => `inkstone.project.${projectId}.skills`;
 const editorPreferencesKey = (projectId: string) => `inkstone.project.${projectId}.editor-preferences`;
 const activeWritingSessionKey = (projectId: string) => `inkstone.project.${projectId}.active-writing-session`;
 const writingSessionsKey = (projectId: string) => `inkstone.project.${projectId}.writing-sessions`;
+const workshopRoundsKey = (projectId: string) => `inkstone.project.${projectId}.workshop-rounds`;
 const defaultEditorPreferences: EditorPreferences = { paragraphStyle: "body", fontFamily: "songti", fontSize: 17 };
 
 export function readSavedChapters(projectId: string): SavedChapter[] {
@@ -99,3 +100,5 @@ export function readActiveWritingSession(projectId: string) { return readJson<Ac
 export function saveActiveWritingSession(projectId: string, session: ActiveWritingSession | null) { if (session) localStorage.setItem(activeWritingSessionKey(projectId), JSON.stringify(session)); else localStorage.removeItem(activeWritingSessionKey(projectId)); }
 export function readWritingSessions(projectId: string) { return readJson<WritingSession[]>(writingSessionsKey(projectId), []); }
 export function saveWritingSessions(projectId: string, sessions: WritingSession[]) { localStorage.setItem(writingSessionsKey(projectId), JSON.stringify(sessions.slice(0, 60))); }
+export function readWorkshopRounds(projectId: string) { return readJson<WorkshopRound[]>(workshopRoundsKey(projectId), []); }
+export function saveWorkshopRounds(projectId: string, rounds: WorkshopRound[]) { localStorage.setItem(workshopRoundsKey(projectId), JSON.stringify(rounds.slice(0, 12))); }
