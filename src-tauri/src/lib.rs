@@ -1,6 +1,8 @@
 use regex::Regex;
 use serde::Serialize;
 use std::process::Command;
+use std::{fs, time::{SystemTime, UNIX_EPOCH}};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -8,6 +10,28 @@ struct WebSearchResult {
     title: String,
     url: String,
     snippet: String,
+}
+
+/// Extracts editable plain text from a local Word document via macOS textutil.
+#[tauri::command]
+fn extract_word_text(filename: String, contents_base64: String) -> Result<String, String> {
+    let lower_name = filename.to_lowercase();
+    if !(lower_name.ends_with(".doc") || lower_name.ends_with(".docx")) {
+        return Err("只支持 .doc 或 .docx Word 文档。".into());
+    }
+    let bytes = STANDARD.decode(contents_base64).map_err(|_| "无法读取 Word 文件内容。".to_string())?;
+    if bytes.len() > 20 * 1024 * 1024 { return Err("Word 文件超过 20 MB，请拆分后再导入。".into()); }
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "无法创建临时导入文件。".to_string())?.as_nanos();
+    let extension = if lower_name.ends_with(".docx") { "docx" } else { "doc" };
+    let path = std::env::temp_dir().join(format!("inkstone-import-{}-{stamp}.{extension}", std::process::id()));
+    fs::write(&path, bytes).map_err(|error| format!("无法暂存 Word 文件：{error}"))?;
+    let output = Command::new("/usr/bin/textutil").args(["-convert", "txt", "-stdout"]).arg(&path).output();
+    let _ = fs::remove_file(&path);
+    let output = output.map_err(|error| format!("无法启动 Word 导入：{error}"))?;
+    if !output.status.success() { return Err(format!("无法读取 Word 文档：{}", String::from_utf8_lossy(&output.stderr).trim())); }
+    let text = String::from_utf8_lossy(&output.stdout).replace("\r\n", "\n").trim().to_string();
+    if text.is_empty() { return Err("Word 文档中没有可导入的文本。".into()); }
+    Ok(text)
 }
 
 fn compact_text(value: String, limit: usize) -> String {
@@ -71,7 +95,7 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, web_search])
+        .invoke_handler(tauri::generate_handler![greet, web_search, extract_word_text])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
