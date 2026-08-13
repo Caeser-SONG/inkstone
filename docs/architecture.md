@@ -29,6 +29,10 @@
 
 `services/skills.ts` 提供内置写作 Skills；`SkillManager.tsx` 管理启停与 JSON 导入。用户导入的 Skill 和对内置 Skill 的启停覆盖都通过 `storage.ts` 按作品 ID 保存。请求运行前只有启用的 Skill 会进入 Agent 指令。
 
+## 公开网络搜索
+
+`src-tauri/src/lib.rs` 中的 `web_search` 命令通过 macOS 自带 `curl` 获取公开搜索结果页，并只返回搜索结果卡片的标题、链接和摘要。`services/webSearch.ts` 是前端调用入口：资料库展示结果并可一键收藏；`piAgent.ts` 则把同一入口提供为 Pi 的 `web_search` 工具。该工具不打开结果页、不下载文本，也不返回小说全文。
+
 ## 模型适配
 
 `services/model.ts` 是业务层入口；续写、故事 Agent 与写作搭档都共享 Pi 适配层，避免在组件里直接拼接 HTTP 请求。
