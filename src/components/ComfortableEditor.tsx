@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import type { EditorPreferences } from "../types/story";
 
 const fontFamilies: Record<EditorPreferences["fontFamily"], string> = {
@@ -8,21 +8,29 @@ const fontFamilies: Record<EditorPreferences["fontFamily"], string> = {
   system: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
 };
 
-const lineHeights: Record<EditorPreferences["paragraphStyle"], number> = { compact: 1.75, body: 2.05, relaxed: 2.35 };
+const paragraphGaps: Record<EditorPreferences["paragraphStyle"], string> = { compact: "0.55em", body: "1.05em", relaxed: "1.65em" };
+
+function escapeHtml(text: string) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function toEditorHtml(text: string) {
+  const paragraphs = text.replace(/\r\n/g, "\n").split("\n\n");
+  return paragraphs.map((paragraph) => `<p>${paragraph ? escapeHtml(paragraph).replace(/\n/g, "<br />") : "<br />"}</p>`).join("");
+}
 
 export function ComfortableEditor({ activeChapter, chapterTitle, draft, setDraft, preferences }: { activeChapter: number; chapterTitle: string; draft: string; setDraft: (value: string) => void; preferences: EditorPreferences }) {
   const viewportRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   const resizeEditor = () => {
-    const editor = textareaRef.current;
+    const editor = editorRef.current;
     if (!editor) return;
-    editor.style.height = "auto";
-    editor.style.height = `${editor.scrollHeight}px`;
+    editor.style.minHeight = `${Math.max(300, editor.scrollHeight)}px`;
   };
 
   const positionWritingArea = () => {
-    const editor = textareaRef.current;
+    const editor = editorRef.current;
     const viewport = viewportRef.current;
     if (!editor || !viewport) return;
     const cursorLine = editor.offsetTop + editor.scrollHeight;
@@ -34,10 +42,17 @@ export function ComfortableEditor({ activeChapter, chapterTitle, draft, setDraft
   }, [draft]);
 
   useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || editor.innerText.replace(/\r\n/g, "\n").trimEnd() === draft.trimEnd()) return;
+    editor.innerHTML = toEditorHtml(draft);
+    resizeEditor();
+  }, [draft]);
+
+  useEffect(() => {
     const frame = window.requestAnimationFrame(positionWritingArea);
     return () => window.cancelAnimationFrame(frame);
   }, [activeChapter]);
 
-  const editorStyle = { fontFamily: fontFamilies[preferences.fontFamily], fontSize: `${preferences.fontSize}px`, lineHeight: lineHeights[preferences.paragraphStyle] };
-  return <div className="writing-viewport" ref={viewportRef}><article className="paper" aria-label="小说正文编辑器"><header className="chapter-heading"><span>第一卷 · 回城</span><h1>第{activeChapter || "—"}章 {chapterTitle}</h1><p>2026年8月8日 · 本章草稿</p></header><textarea ref={textareaRef} value={draft} onChange={(event) => setDraft(event.target.value)} spellCheck={false} aria-label="正文内容" style={editorStyle} /><div className="writing-breathing-room" aria-hidden="true" /></article></div>;
+  const editorStyle = { fontFamily: fontFamilies[preferences.fontFamily], fontSize: `${preferences.fontSize}px`, lineHeight: 1.58, "--paragraph-gap": paragraphGaps[preferences.paragraphStyle] } as CSSProperties;
+  return <div className="writing-viewport" ref={viewportRef}><article className="paper" aria-label="小说正文编辑器"><header className="chapter-heading"><span>第一卷 · 回城</span><h1>第{activeChapter || "—"}章 {chapterTitle}</h1><p>2026年8月8日 · 本章草稿</p></header><div ref={editorRef} className="text-editor" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="正文内容" spellCheck={false} style={editorStyle} onInput={(event) => { setDraft(event.currentTarget.innerText.replace(/\r\n/g, "\n").trimEnd()); resizeEditor(); }} dangerouslySetInnerHTML={{ __html: toEditorHtml(draft) }} /><div className="writing-breathing-room" aria-hidden="true" /></article></div>;
 }
