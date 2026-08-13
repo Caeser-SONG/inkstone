@@ -49,6 +49,12 @@ export type LayeredMemory = {
   retrieved: string;
 };
 
+export type EditorPreferences = {
+  paragraphStyle: "body" | "compact" | "relaxed";
+  fontFamily: "songti" | "heiti" | "kaiti" | "system";
+  fontSize: 15 | 16 | 17 | 18 | 19 | 20;
+};
+
 export type StoryBeat = {
   title: string;
   detail: string;
