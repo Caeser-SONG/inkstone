@@ -76,11 +76,13 @@ export type WritingSession = {
 };
 
 export type WorkshopAgentRole = "writer" | "editor" | "reader";
+export type WorkshopParticipant = WorkshopAgentRole | "author";
+export type WorkshopPhase = "proposal" | "edit" | "response" | "revision";
 
 export type WorkshopMessage = {
   id: string;
-  role: WorkshopAgentRole;
-  phase: "proposal" | "edit" | "response" | "revision";
+  role: WorkshopParticipant;
+  phase: WorkshopPhase | "author-note" | "conversation";
   content: string;
 };
 
@@ -88,6 +90,9 @@ export type WorkshopRound = {
   id: string;
   brief: string;
   createdAt: string;
+  updatedAt: string;
+  status: "active" | "completed" | "abandoned";
+  nextPhase?: WorkshopPhase;
   messages: WorkshopMessage[];
 };
 
