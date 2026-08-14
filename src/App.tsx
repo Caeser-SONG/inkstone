@@ -10,7 +10,7 @@ import { initialDraft } from "./data/demo";
 import { generateNovelContinuation } from "./services/model";
 import { importTextFile } from "./services/importText";
 import { analyzeSavedChapters } from "./services/storyAgent";
-import { readActiveProjectId, readActiveWritingSession, readChapterHistory, readEditorPreferences, readLibrary, readModelConfig, readProjects, readSavedChapters, readSkills, readStoryAnalysis, readWorkshopRounds, readWritingSessions, saveActiveProjectId, saveActiveWritingSession, saveChapterVersion, saveEditorPreferences, saveModelConfig, saveProjects, saveSavedChapters, saveSkills, saveStoryAnalysis, saveWritingSessions } from "./services/storage";
+import { readActiveProjectId, readActiveWritingSession, readChapterHistory, readEditorPreferences, readLibrary, readModelConfig, readProjects, readSavedChapters, readSkills, readStoryAnalysis, readWritingSessions, saveActiveProjectId, saveActiveWritingSession, saveChapterVersion, saveEditorPreferences, saveModelConfig, saveProjects, saveSavedChapters, saveSkills, saveStoryAnalysis, saveWritingSessions } from "./services/storage";
 import { availableSkills } from "./services/skills";
 import type { ActiveWritingSession, Chapter, ChapterVersion, EditorPreferences, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, View, WritingSession, WritingSkill } from "./types/story";
 import "./App.css";
@@ -98,13 +98,15 @@ function App() {
   }, [activeWritingSession?.status]);
 
   useEffect(() => {
-    const pauseWhenHidden = () => {
-      if (document.visibilityState !== "hidden" || activeWritingSession?.status !== "running" || !activeProject) return;
+    const pauseWritingSession = () => {
+      if (activeWritingSession?.status !== "running" || !activeProject) return;
       const paused = { ...activeWritingSession, accruedSeconds: getActiveWritingSeconds(activeWritingSession), resumedAt: undefined, status: "paused" as const };
       saveActiveWritingSession(activeProject.id, paused); setActiveWritingSession(paused);
     };
+    const pauseWhenHidden = () => { if (document.visibilityState === "hidden") pauseWritingSession(); };
     document.addEventListener("visibilitychange", pauseWhenHidden);
-    return () => document.removeEventListener("visibilitychange", pauseWhenHidden);
+    window.addEventListener("pagehide", pauseWritingSession);
+    return () => { document.removeEventListener("visibilitychange", pauseWhenHidden); window.removeEventListener("pagehide", pauseWritingSession); };
   }, [activeProject, activeWritingSession]);
 
   const selectProject = (projectId: string) => {
@@ -115,7 +117,7 @@ function App() {
     }
     saveActiveProjectId(projectId); setActiveProjectId(projectId); setActiveChapter(project.chapters[0]?.id || 0);
     setDraft(project.chapters[0] ? (readSavedChapters(projectId).find((chapter) => chapter.id === project.chapters[0].id)?.content || (projectId === "demo-project" ? initialDraft : "")) : "");
-    setSavedChapters(readSavedChapters(projectId)); setStoryAnalysis(readStoryAnalysis(projectId)); setSkills(readSkills(projectId)); setEditorPreferences(readEditorPreferences(projectId)); setActiveWritingSession(readActiveWritingSession(projectId)); setWritingSessions(readWritingSessions(projectId)); readWorkshopRounds(projectId); setSessionClock(Date.now()); setView("write");
+    setSavedChapters(readSavedChapters(projectId)); setStoryAnalysis(readStoryAnalysis(projectId)); setSkills(readSkills(projectId)); setEditorPreferences(readEditorPreferences(projectId)); setActiveWritingSession(readActiveWritingSession(projectId)); setWritingSessions(readWritingSessions(projectId)); setSessionClock(Date.now()); setView("write");
   };
 
   const updateChapters = (nextChapters: Chapter[]) => {

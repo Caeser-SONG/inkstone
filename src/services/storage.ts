@@ -96,9 +96,21 @@ export function readSkills(projectId: string) { return readJson<WritingSkill[]>(
 export function saveSkills(projectId: string, skills: WritingSkill[]) { localStorage.setItem(skillsKey(projectId), JSON.stringify(skills)); }
 export function readEditorPreferences(projectId: string) { return { ...defaultEditorPreferences, ...readJson<Partial<EditorPreferences>>(editorPreferencesKey(projectId), {}) }; }
 export function saveEditorPreferences(projectId: string, preferences: EditorPreferences) { localStorage.setItem(editorPreferencesKey(projectId), JSON.stringify(preferences)); }
-export function readActiveWritingSession(projectId: string) { return readJson<ActiveWritingSession | null>(activeWritingSessionKey(projectId), null); }
+export function readActiveWritingSession(projectId: string) {
+  const session = readJson<ActiveWritingSession | null>(activeWritingSessionKey(projectId), null);
+  // A process can quit before the visibility handler runs. Resume conservatively,
+  // otherwise time spent away from the app is counted as writing time.
+  return session?.status === "running" ? { ...session, resumedAt: undefined, status: "paused" as const } : session;
+}
 export function saveActiveWritingSession(projectId: string, session: ActiveWritingSession | null) { if (session) localStorage.setItem(activeWritingSessionKey(projectId), JSON.stringify(session)); else localStorage.removeItem(activeWritingSessionKey(projectId)); }
 export function readWritingSessions(projectId: string) { return readJson<WritingSession[]>(writingSessionsKey(projectId), []); }
 export function saveWritingSessions(projectId: string, sessions: WritingSession[]) { localStorage.setItem(writingSessionsKey(projectId), JSON.stringify(sessions.slice(0, 60))); }
-export function readWorkshopRounds(projectId: string) { return readJson<WorkshopRound[]>(workshopRoundsKey(projectId), []); }
+export function readWorkshopRounds(projectId: string) {
+  return readJson<WorkshopRound[]>(workshopRoundsKey(projectId), []).map((round) => ({
+    ...round,
+    // Records created before the interruptible workflow did not have these fields.
+    updatedAt: round.updatedAt || round.createdAt,
+    status: round.status || "completed",
+  }));
+}
 export function saveWorkshopRounds(projectId: string, rounds: WorkshopRound[]) { localStorage.setItem(workshopRoundsKey(projectId), JSON.stringify(rounds.slice(0, 12))); }
