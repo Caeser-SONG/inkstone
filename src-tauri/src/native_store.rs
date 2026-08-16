@@ -1,11 +1,10 @@
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
     fs,
-    io::Write,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
     time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, Manager};
@@ -30,16 +29,6 @@ pub struct StoredChapter {
     pub saved_at: String,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct StoredChapterRow {
-    project_id: String,
-    id: i64,
-    title: String,
-    content: String,
-    saved_at: String,
-}
-
 fn database_path(app: &AppHandle) -> Result<PathBuf, String> {
     let directory = app
         .path()
@@ -50,76 +39,35 @@ fn database_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 fn workspace_path() -> Result<PathBuf, String> {
-    let base = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .ok_or_else(|| "无法定位用户目录。".to_string())?;
-    let path = base.join("Documents").join("墨舟作品");
+    let base = dirs::document_dir()
+        .or_else(dirs::home_dir)
+        .ok_or_else(|| "无法定位用户文稿目录。".to_string())?;
+    let path = base.join("墨舟作品");
     fs::create_dir_all(&path).map_err(|error| format!("无法创建作品目录：{error}"))?;
     Ok(path)
 }
 
-fn sqlite_path(path: &Path) -> Result<&str, String> {
-    path.to_str()
-        .ok_or_else(|| "数据库路径包含无效字符。".to_string())
-}
-fn quote(value: &str) -> String {
-    format!("'{}'", value.replace('\0', "").replace('\'', "''"))
-}
-
-fn run_sql(path: &Path, sql: &str, as_json: bool) -> Result<String, String> {
-    let mut command = Command::new("/usr/bin/sqlite3");
-    command.arg("-bail");
-    if as_json {
-        command.arg("-json");
-    }
-    let mut child = command
-        .arg(sqlite_path(path)?)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|error| format!("无法启动 SQLite：{error}"))?;
-    child
-        .stdin
-        .take()
-        .ok_or_else(|| "无法写入 SQLite。".to_string())?
-        .write_all(sql.as_bytes())
-        .map_err(|error| format!("无法写入 SQLite：{error}"))?;
-    let output = child
-        .wait_with_output()
-        .map_err(|error| format!("无法读取 SQLite：{error}"))?;
-    if !output.status.success() {
-        return Err(format!(
-            "本地数据库操作失败：{}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        ));
-    }
-    String::from_utf8(output.stdout).map_err(|_| "本地数据库返回了无效文本。".to_string())
-}
-
-fn execute(path: &Path, sql: &str) -> Result<(), String> {
-    run_sql(path, sql, false).map(|_| ())
-}
-fn query(path: &Path, sql: &str) -> Result<Vec<Value>, String> {
-    let output = run_sql(path, sql, true)?;
-    serde_json::from_str(&output).map_err(|error| format!("无法读取本地数据库：{error}"))
-}
-
-fn open_database(app: &AppHandle) -> Result<PathBuf, String> {
+fn open_database(app: &AppHandle) -> Result<(Connection, PathBuf), String> {
     let path = database_path(app)?;
-    execute(&path, "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS entries (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS chapters (project_id TEXT NOT NULL, chapter_id INTEGER NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, saved_at TEXT NOT NULL, PRIMARY KEY (project_id, chapter_id)); CREATE INDEX IF NOT EXISTS idx_chapters_project_id ON chapters(project_id, chapter_id);")?;
-    Ok(path)
+    let connection =
+        Connection::open(&path).map_err(|error| format!("无法打开本地数据库：{error}"))?;
+    connection
+        .busy_timeout(std::time::Duration::from_secs(5))
+        .map_err(|error| format!("无法配置数据库：{error}"))?;
+    connection.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS entries (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS chapters (project_id TEXT NOT NULL, chapter_id INTEGER NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, saved_at TEXT NOT NULL, PRIMARY KEY (project_id, chapter_id)); CREATE INDEX IF NOT EXISTS idx_chapters_project_id ON chapters(project_id, chapter_id);").map_err(|error| format!("无法初始化本地数据库：{error}"))?;
+    Ok((connection, path))
 }
 
-fn has_migrated(path: &Path) -> Result<bool, String> {
-    Ok(!query(
-        path,
-        &format!(
-            "SELECT value FROM metadata WHERE key = {}",
-            quote(MIGRATION_MARKER)
-        ),
-    )?
-    .is_empty())
+fn has_migrated(connection: &Connection) -> Result<bool, String> {
+    connection
+        .query_row(
+            "SELECT value FROM metadata WHERE key = ?1",
+            [MIGRATION_MARKER],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map(|value| value.as_deref() == Some("1"))
+        .map_err(|error| format!("无法读取数据库状态：{error}"))
 }
 
 fn chapter_key_project_id(key: &str) -> Option<String> {
@@ -134,33 +82,42 @@ fn now_millis() -> i64 {
         .as_millis() as i64
 }
 
-fn entry_map(path: &Path) -> Result<HashMap<String, String>, String> {
+fn entry_map(connection: &Connection) -> Result<HashMap<String, String>, String> {
     let mut entries = HashMap::new();
-    for row in query(path, "SELECT key, value FROM entries")? {
-        let key = row
-            .get("key")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "本地数据键无效。".to_string())?;
-        let value = row
-            .get("value")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "本地数据值无效。".to_string())?;
-        entries.insert(key.to_owned(), value.to_owned());
+    {
+        let mut statement = connection
+            .prepare("SELECT key, value FROM entries")
+            .map_err(|error| format!("无法读取本地数据：{error}"))?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|error| format!("无法读取本地数据：{error}"))?;
+        for row in rows {
+            let (key, value) = row.map_err(|error| format!("无法读取本地数据：{error}"))?;
+            entries.insert(key, value);
+        }
     }
-    let rows = query(path, "SELECT project_id AS projectId, chapter_id AS id, title, content, saved_at AS savedAt FROM chapters ORDER BY project_id, chapter_id")?;
     let mut groups: HashMap<String, Vec<StoredChapter>> = HashMap::new();
-    for row in rows {
-        let row: StoredChapterRow =
-            serde_json::from_value(row).map_err(|error| format!("章节数据无效：{error}"))?;
-        groups
-            .entry(row.project_id)
-            .or_default()
-            .push(StoredChapter {
-                id: row.id,
-                title: row.title,
-                content: row.content,
-                saved_at: row.saved_at,
-            });
+    {
+        let mut statement = connection.prepare("SELECT project_id, chapter_id, title, content, saved_at FROM chapters ORDER BY project_id, chapter_id").map_err(|error| format!("无法读取章节：{error}"))?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    StoredChapter {
+                        id: row.get(1)?,
+                        title: row.get(2)?,
+                        content: row.get(3)?,
+                        saved_at: row.get(4)?,
+                    },
+                ))
+            })
+            .map_err(|error| format!("无法读取章节：{error}"))?;
+        for row in rows {
+            let (project_id, chapter) = row.map_err(|error| format!("无法读取章节：{error}"))?;
+            groups.entry(project_id).or_default().push(chapter);
+        }
     }
     for (project_id, chapters) in groups {
         entries.insert(
@@ -210,6 +167,7 @@ fn chapter_markdown(chapter: &StoredChapter) -> String {
         chapter.content.trim_end()
     )
 }
+
 fn mirror_chapter(
     project_id: &str,
     project_title: &str,
@@ -256,10 +214,10 @@ fn prune_chapter_backups(directory: &Path, chapter_id: i64, limit: usize) -> Res
 
 #[tauri::command]
 pub fn load_native_store(app: AppHandle) -> Result<NativeStoreSnapshot, String> {
-    let path = open_database(&app)?;
+    let (connection, path) = open_database(&app)?;
     Ok(NativeStoreSnapshot {
-        migrated: has_migrated(&path)?,
-        entries: entry_map(&path)?,
+        migrated: has_migrated(&connection)?,
+        entries: entry_map(&connection)?,
         database_path: path.display().to_string(),
         workspace_path: workspace_path()?.display().to_string(),
     })
@@ -270,58 +228,57 @@ pub fn migrate_web_store(
     app: AppHandle,
     entries: HashMap<String, String>,
 ) -> Result<NativeStoreSnapshot, String> {
-    let path = open_database(&app)?;
-    if has_migrated(&path)? {
+    let (mut connection, path) = open_database(&app)?;
+    if has_migrated(&connection)? {
         return load_native_store(app);
     }
     let titles = project_titles(&entries);
     let mut groups = Vec::new();
-    let mut sql = String::from("BEGIN IMMEDIATE;");
-    for (key, value) in &entries {
-        if let Some(project_id) = chapter_key_project_id(key) {
-            groups.push((
-                project_id,
-                serde_json::from_str::<Vec<StoredChapter>>(value)
-                    .map_err(|error| format!("无法迁移章节数据：{error}"))?,
-            ));
-        } else {
-            sql.push_str(&format!(
-                "INSERT OR REPLACE INTO entries (key, value, updated_at) VALUES ({}, {}, {});",
-                quote(key),
-                quote(value),
-                now_millis()
-            ));
+    {
+        let transaction = connection
+            .transaction()
+            .map_err(|error| format!("无法开始数据迁移：{error}"))?;
+        for (key, value) in &entries {
+            if let Some(project_id) = chapter_key_project_id(key) {
+                groups.push((
+                    project_id,
+                    serde_json::from_str::<Vec<StoredChapter>>(value)
+                        .map_err(|error| format!("无法迁移章节数据：{error}"))?,
+                ));
+            } else {
+                transaction.execute("INSERT OR REPLACE INTO entries (key, value, updated_at) VALUES (?1, ?2, ?3)", params![key, value, now_millis()]).map_err(|error| format!("无法迁移作品数据：{error}"))?;
+            }
         }
-    }
-    for (project_id, chapters) in &groups {
-        sql.push_str(&format!(
-            "DELETE FROM chapters WHERE project_id = {};",
-            quote(project_id)
-        ));
-        for chapter in chapters {
-            sql.push_str(&format!("INSERT INTO chapters (project_id, chapter_id, title, content, saved_at) VALUES ({}, {}, {}, {}, {});", quote(project_id), chapter.id, quote(&chapter.title), quote(&chapter.content), quote(&chapter.saved_at)));
+        for (project_id, chapters) in &groups {
+            transaction
+                .execute("DELETE FROM chapters WHERE project_id = ?1", [project_id])
+                .map_err(|error| format!("无法迁移章节：{error}"))?;
+            for chapter in chapters {
+                transaction.execute("INSERT INTO chapters (project_id, chapter_id, title, content, saved_at) VALUES (?1, ?2, ?3, ?4, ?5)", params![project_id, chapter.id, &chapter.title, &chapter.content, &chapter.saved_at]).map_err(|error| format!("无法迁移章节：{error}"))?;
+            }
         }
+        transaction
+            .execute(
+                "INSERT OR REPLACE INTO metadata (key, value) VALUES (?1, '1')",
+                [MIGRATION_MARKER],
+            )
+            .map_err(|error| format!("无法完成数据迁移：{error}"))?;
+        transaction
+            .commit()
+            .map_err(|error| format!("无法完成数据迁移：{error}"))?;
     }
-    sql.push_str(&format!(
-        "INSERT OR REPLACE INTO metadata (key, value) VALUES ({}, '1'); COMMIT;",
-        quote(MIGRATION_MARKER)
-    ));
-    execute(&path, &sql)?;
     for (project_id, chapters) in groups {
+        let title = titles
+            .get(&project_id)
+            .map(String::as_str)
+            .unwrap_or("未命名作品");
         for chapter in chapters {
-            mirror_chapter(
-                &project_id,
-                titles
-                    .get(&project_id)
-                    .map(String::as_str)
-                    .unwrap_or("未命名作品"),
-                &chapter,
-            )?;
+            mirror_chapter(&project_id, title, &chapter)?;
         }
     }
     Ok(NativeStoreSnapshot {
         migrated: true,
-        entries: entry_map(&path)?,
+        entries: entry_map(&connection)?,
         database_path: path.display().to_string(),
         workspace_path: workspace_path()?.display().to_string(),
     })
@@ -332,25 +289,23 @@ pub fn put_native_entry(app: AppHandle, key: String, value: String) -> Result<()
     if chapter_key_project_id(&key).is_some() {
         return Err("章节必须通过章节仓储保存。".into());
     }
-    let path = open_database(&app)?;
-    execute(
-        &path,
-        &format!(
-            "INSERT OR REPLACE INTO entries (key, value, updated_at) VALUES ({}, {}, {});",
-            quote(&key),
-            quote(&value),
-            now_millis()
-        ),
-    )
+    let (connection, _) = open_database(&app)?;
+    connection
+        .execute(
+            "INSERT OR REPLACE INTO entries (key, value, updated_at) VALUES (?1, ?2, ?3)",
+            params![key, value, now_millis()],
+        )
+        .map_err(|error| format!("无法保存本地数据：{error}"))?;
+    Ok(())
 }
 
 #[tauri::command]
 pub fn remove_native_entry(app: AppHandle, key: String) -> Result<(), String> {
-    let path = open_database(&app)?;
-    execute(
-        &path,
-        &format!("DELETE FROM entries WHERE key = {};", quote(&key)),
-    )
+    let (connection, _) = open_database(&app)?;
+    connection
+        .execute("DELETE FROM entries WHERE key = ?1", [key])
+        .map_err(|error| format!("无法更新本地数据：{error}"))?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -360,7 +315,7 @@ pub fn save_native_chapter(
     project_title: String,
     chapter: StoredChapter,
 ) -> Result<(), String> {
-    let path = open_database(&app)?;
-    execute(&path, &format!("INSERT INTO chapters (project_id, chapter_id, title, content, saved_at) VALUES ({}, {}, {}, {}, {}) ON CONFLICT(project_id, chapter_id) DO UPDATE SET title = excluded.title, content = excluded.content, saved_at = excluded.saved_at;", quote(&project_id), chapter.id, quote(&chapter.title), quote(&chapter.content), quote(&chapter.saved_at)))?;
+    let (connection, _) = open_database(&app)?;
+    connection.execute("INSERT INTO chapters (project_id, chapter_id, title, content, saved_at) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(project_id, chapter_id) DO UPDATE SET title = excluded.title, content = excluded.content, saved_at = excluded.saved_at", params![&project_id, chapter.id, &chapter.title, &chapter.content, &chapter.saved_at]).map_err(|error| format!("无法保存章节：{error}"))?;
     mirror_chapter(&project_id, &project_title, &chapter)
 }

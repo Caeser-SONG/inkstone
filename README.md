@@ -35,6 +35,19 @@ npm run tauri dev
 npm run tauri build
 ```
 
+## 发布 macOS / Windows 11 安装包
+
+仓库中的 GitHub Actions **只会在推送 `v*` 标签时**构建发布包，不会在普通提交或分支推送时消耗构建额度。它会构建并发布：Apple Silicon macOS DMG、Intel macOS DMG，以及 Windows 11 x64 安装包；完成后用户可直接从 GitHub Release 下载。
+
+标签必须与 `package.json` 中的版本一致。例如先将版本更新为 `0.2.1`，再运行：
+
+```bash
+git tag v0.2.1
+git push origin v0.2.1
+```
+
+工作流会先创建草稿 Release，三个平台全部成功后才自动公开发布。
+
 ## 配置模型
 
 在右上角设置中填写：
