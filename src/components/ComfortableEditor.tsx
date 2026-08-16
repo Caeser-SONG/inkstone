@@ -19,9 +19,15 @@ function toEditorHtml(text: string) {
   return paragraphs.map((paragraph) => `<p>${paragraph ? escapeHtml(paragraph).replace(/\n/g, "<br />") : "<br />"}</p>`).join("");
 }
 
+function editorText(editor: HTMLElement) {
+  return editor.innerText.replace(/\r\n/g, "\n");
+}
+
 export function ComfortableEditor({ activeChapter, chapterTitle, draft, setDraft, preferences }: { activeChapter: number; chapterTitle: string; draft: string; setDraft: (value: string) => void; preferences: EditorPreferences }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const displayedChapterRef = useRef<number | null>(null);
+  const lastTypedDraftRef = useRef(draft);
 
   const resizeEditor = () => {
     const editor = editorRef.current;
@@ -38,15 +44,20 @@ export function ComfortableEditor({ activeChapter, chapterTitle, draft, setDraft
   };
 
   useLayoutEffect(() => {
-    resizeEditor();
-  }, [draft]);
-
-  useEffect(() => {
     const editor = editorRef.current;
-    if (!editor || editor.innerText.replace(/\r\n/g, "\n").trimEnd() === draft.trimEnd()) return;
-    editor.innerHTML = toEditorHtml(draft);
+    if (!editor) return;
+    const changedChapter = displayedChapterRef.current !== activeChapter;
+    const isLocalTyping = document.activeElement === editor && !changedChapter && draft === lastTypedDraftRef.current;
+
+    // ContentEditable must stay uncontrolled while the user is typing. Replacing
+    // its HTML on each input resets the selection and makes subsequent text land
+    // in new blocks (which looked like vertical input).
+    if (!isLocalTyping && editorText(editor) !== draft) {
+      editor.innerHTML = toEditorHtml(draft);
+    }
+    displayedChapterRef.current = activeChapter;
     resizeEditor();
-  }, [draft]);
+  }, [activeChapter, draft]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(positionWritingArea);
@@ -54,5 +65,5 @@ export function ComfortableEditor({ activeChapter, chapterTitle, draft, setDraft
   }, [activeChapter]);
 
   const editorStyle = { fontFamily: fontFamilies[preferences.fontFamily], fontSize: `${preferences.fontSize}px`, lineHeight: 1.58, "--paragraph-gap": paragraphGaps[preferences.paragraphStyle] } as CSSProperties;
-  return <div className="writing-viewport" ref={viewportRef}><article className="paper" aria-label="小说正文编辑器"><header className="chapter-heading"><span>第一卷 · 回城</span><h1>第{activeChapter || "—"}章 {chapterTitle}</h1><p>2026年8月8日 · 本章草稿</p></header><div ref={editorRef} className="text-editor" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="正文内容" spellCheck={false} style={editorStyle} onInput={(event) => { setDraft(event.currentTarget.innerText.replace(/\r\n/g, "\n").trimEnd()); resizeEditor(); }} dangerouslySetInnerHTML={{ __html: toEditorHtml(draft) }} /><div className="writing-breathing-room" aria-hidden="true" /></article></div>;
+  return <div className="writing-viewport" ref={viewportRef}><article className="paper" aria-label="小说正文编辑器"><header className="chapter-heading"><span>第一卷 · 回城</span><h1>第{activeChapter || "—"}章 {chapterTitle}</h1><p>2026年8月8日 · 本章草稿</p></header><div ref={editorRef} className="text-editor" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="正文内容" spellCheck={false} style={editorStyle} onInput={(event) => { const nextDraft = editorText(event.currentTarget); lastTypedDraftRef.current = nextDraft; setDraft(nextDraft); resizeEditor(); }} /><div className="writing-breathing-room" aria-hidden="true" /></article></div>;
 }
