@@ -2,7 +2,9 @@
 
 ## 数据边界
 
-`NovelProject` 是作品元数据和章节目录；正文以 `SavedChapter` 独立保存。每个作品拥有独立的章节正文和 `StoryAnalysis` 键，切换作品时同步切换这三类数据。
+`NovelProject` 是作品元数据和章节目录；正文以 `SavedChapter` 独立保存。桌面版启动时通过 `nativeStore.ts` 调用 Tauri 原生命令，将原有 WebView 数据一次性迁移到 SQLite。SQLite 位于 macOS 应用数据目录，使用 WAL 模式；`chapters` 表以 `(project_id, chapter_id)` 为主键，每次保存只更新当前章节，而不是重写整部作品。
+
+运行时会保留一份内存缓存供 React 同步读取，但数据库才是持久化主副本。每次保存还会写入 `~/Documents/墨舟作品/<作品ID>/chapters/0001.md` 这样的 Markdown 镜像，并在同目录 `backups/` 中保留每章最近 20 份版本。旧 `localStorage` 不会被自动删除，避免迁移失败时丢失数据。
 
 ## 正文导入
 
@@ -43,6 +45,6 @@
 
 ## 已知发布边界
 
-- API Key 当前存于 WebView 本地存储，适合原型和个人本地使用，不适合多人分发。
-- 导出、细粒度版本恢复、SQLite/向量检索和流式响应是下一阶段的持久化能力。
+- API Key 当前仍保存在本机 SQLite 条目中；生产分发前应迁移到 macOS Keychain。
+- 当前已具备 SQLite 主存储、章节级写入和 Markdown 自动镜像；全文检索与向量检索仍是后续能力。
 - 生产版应将密钥保管和模型请求移入 Tauri Rust 层。
