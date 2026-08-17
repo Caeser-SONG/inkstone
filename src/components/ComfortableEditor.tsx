@@ -2,9 +2,12 @@ import { useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import type { EditorPreferences } from "../types/story";
 
 const fontFamilies: Record<EditorPreferences["fontFamily"], string> = {
-  songti: '"Songti SC", "STSong", "Noto Serif CJK SC", serif',
-  heiti: '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
-  kaiti: '"Kaiti SC", "STKaiti", "KaiTi", serif',
+  songti: '"Songti SC", "STSong", "SimSun", "Noto Serif CJK SC", serif',
+  songtiLight: '"Songti SC Light", "Songti SC", "STSong", "SimSun", serif',
+  kaiti: '"Kaiti SC", "STKaiti", "KaiTi", "KaiTi_GB2312", serif',
+  fangsong: '"STFangsong", "FangSong", "FangSong_GB2312", serif',
+  heiti: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif',
+  hiragino: '"Hiragino Sans GB", "PingFang SC", "Microsoft YaHei", sans-serif',
   system: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
 };
 

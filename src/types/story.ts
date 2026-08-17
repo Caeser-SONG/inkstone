@@ -51,7 +51,7 @@ export type LayeredMemory = {
 
 export type EditorPreferences = {
   paragraphStyle: "body" | "compact" | "relaxed";
-  fontFamily: "songti" | "heiti" | "kaiti" | "system";
+  fontFamily: "songti" | "songtiLight" | "kaiti" | "fangsong" | "heiti" | "hiragino" | "system";
   fontSize: 15 | 16 | 17 | 18 | 19 | 20;
 };
 

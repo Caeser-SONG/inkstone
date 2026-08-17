@@ -7,9 +7,17 @@ import { RelationshipGraph } from "./RelationshipGraph";
 import { ToolButton } from "./ToolButton";
 import type { EditorPreferences, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WritingSkill } from "../types/story";
 
-const fontLabels: Record<EditorPreferences["fontFamily"], string> = { songti: "宋体", heiti: "黑体", kaiti: "楷体", system: "系统字体" };
+const fontLabels: Record<EditorPreferences["fontFamily"], string> = { songti: "宋体", songtiLight: "细宋", kaiti: "楷体", fangsong: "仿宋", heiti: "苹方", hiragino: "冬青黑体", system: "系统字体" };
 const paragraphLabels: Record<EditorPreferences["paragraphStyle"], string> = { compact: "紧凑", body: "正文", relaxed: "舒展" };
-const fontOptions: Array<{ value: EditorPreferences["fontFamily"]; label: string }> = [{ value: "songti", label: "宋体" }, { value: "heiti", label: "黑体" }, { value: "kaiti", label: "楷体" }, { value: "system", label: "系统字体" }];
+const fontOptions: Array<{ value: EditorPreferences["fontFamily"]; label: string; note: string }> = [
+  { value: "songti", label: "宋体", note: "端正、适合常规叙事" },
+  { value: "songtiLight", label: "细宋", note: "更轻盈，适合安静的阅读界面" },
+  { value: "kaiti", label: "楷体", note: "手写感更强，标点为楷书字形" },
+  { value: "fangsong", label: "仿宋", note: "清晰克制，长文阅读负担低" },
+  { value: "heiti", label: "苹方", note: "现代无衬线，适合快节奏校稿" },
+  { value: "hiragino", label: "冬青黑体", note: "紧凑清爽，适合较小字号" },
+  { value: "system", label: "系统字体", note: "跟随当前系统的默认字体" },
+];
 const sizeOptions: EditorPreferences["fontSize"][] = [15, 16, 17, 18, 19, 20];
 
 export function WritingView({ activeChapter, chapterTitle, draft, setDraft, wordCount, aiBusy, generateContinuation, setChatOpen, chatOpen, rightPanel, setRightPanel, storyAnalysis, agentBusy, onRunAgent, modelConfig, savedChapters, project, library, skills, editorPreferences, onEditorPreferencesChange }: { activeChapter: number; chapterTitle: string; draft: string; setDraft: (value: string) => void; wordCount: number; aiBusy: boolean; generateContinuation: () => void; setChatOpen: (value: boolean) => void; chatOpen: boolean; rightPanel: "insight" | "graph"; setRightPanel: (value: "insight" | "graph") => void; storyAnalysis: StoryAnalysis | null; agentBusy: boolean; onRunAgent: () => void; modelConfig: ModelConfig; savedChapters: SavedChapter[]; project?: NovelProject; library: LibraryItem[]; skills: WritingSkill[]; editorPreferences: EditorPreferences; onEditorPreferencesChange: (next: EditorPreferences) => void }) {
