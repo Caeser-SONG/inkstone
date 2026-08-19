@@ -114,12 +114,59 @@ export type StoryRelation = {
   label: string;
 };
 
+export type StoryMemoryKind = "character" | "relationship" | "setting" | "timeline" | "foreshadowing";
+export type StoryMemoryStatus = "pending" | "confirmed" | "ignored";
+
+export type StoryEvidence = {
+  chapterId: number;
+  chapterTitle: string;
+  excerpt: string;
+};
+
+export type StoryMemory = {
+  id: string;
+  kind: StoryMemoryKind;
+  title: string;
+  detail: string;
+  status: StoryMemoryStatus;
+  evidence: StoryEvidence[];
+  updatedAt: string;
+};
+
+export type StoryChange = {
+  id: string;
+  type: "added" | "updated" | "warning";
+  title: string;
+  detail: string;
+  evidence: StoryEvidence[];
+};
+
+export type StoryCheck = {
+  id: string;
+  severity: "blocker" | "attention" | "suggestion";
+  title: string;
+  detail: string;
+  evidence: StoryEvidence[];
+};
+
+export type ChapterGuide = {
+  chapterId: number;
+  goal: string;
+  conflict: string;
+  hook: string;
+  updatedAt: string;
+};
+
 export type StoryAnalysis = {
   summary: string;
   beats: StoryBeat[];
   characters: StoryCharacter[];
   relations: StoryRelation[];
   warnings: string[];
+  /** Added incrementally; optional so story analysis saved by older releases remains readable. */
+  memories?: StoryMemory[];
+  changes?: StoryChange[];
+  checks?: StoryCheck[];
   updatedAt: string;
   source: "agent" | "local";
 };

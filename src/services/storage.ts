@@ -1,6 +1,6 @@
 import { chapters as demoChapters } from "../data/demo";
 import { initializeNativeStore, removeNativeEntry, writeNativeChapter, writeNativeEntry, type StorageLocation } from "./nativeStore";
-import type { ActiveWritingSession, ChapterVersion, EditorPreferences, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WorkshopRound, WritingSession, WritingSkill } from "../types/story";
+import type { ActiveWritingSession, ChapterGuide, ChapterVersion, EditorPreferences, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WorkshopRound, WritingSession, WritingSkill } from "../types/story";
 
 const modelConfigKey = "inkstone.model-config";
 const projectsKey = "inkstone.projects";
@@ -73,6 +73,7 @@ const editorPreferencesKey = (projectId: string) => `inkstone.project.${projectI
 const activeWritingSessionKey = (projectId: string) => `inkstone.project.${projectId}.active-writing-session`;
 const writingSessionsKey = (projectId: string) => `inkstone.project.${projectId}.writing-sessions`;
 const workshopRoundsKey = (projectId: string) => `inkstone.project.${projectId}.workshop-rounds`;
+const chapterGuideKey = (projectId: string, chapterId: number) => `inkstone.project.${projectId}.chapter.${chapterId}.guide`;
 const defaultEditorPreferences: EditorPreferences = { paragraphStyle: "body", fontFamily: "songti", fontSize: 17 };
 
 export function readSavedChapters(projectId: string): SavedChapter[] {
@@ -89,6 +90,12 @@ export function readStoryAnalysis(projectId: string): StoryAnalysis | null {
   return scoped || (projectId === demoProjectId ? readJson<StoryAnalysis | null>(legacyStoryAnalysisKey, null) : null);
 }
 export function saveStoryAnalysis(projectId: string, analysis: StoryAnalysis) { writeValue(storyAnalysisKey(projectId), JSON.stringify(analysis)); }
+
+export function readChapterGuide(projectId: string, chapterId: number): ChapterGuide | null {
+  if (!chapterId) return null;
+  return readJson<ChapterGuide | null>(chapterGuideKey(projectId, chapterId), null);
+}
+export function saveChapterGuide(projectId: string, guide: ChapterGuide) { writeValue(chapterGuideKey(projectId, guide.chapterId), JSON.stringify(guide)); }
 
 export function readChapterHistory(projectId: string, chapterId: number) { return readJson<ChapterVersion[]>(chapterHistoryKey(projectId, chapterId), []); }
 export function saveChapterVersion(projectId: string, version: ChapterVersion) {

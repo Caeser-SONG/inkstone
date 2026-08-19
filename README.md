@@ -94,4 +94,4 @@ src/
 src-tauri/      Tauri macOS 容器与打包配置
 ```
 
-更多实现细节见 [架构说明](docs/architecture.md)。
+更多实现细节见 [架构说明](docs/architecture.md)。基于竞品体验整理的功能优先级见 [产品待办](docs/product-roadmap.md)，AI 核心能力的用户故事与验收标准见 [需求拆分](docs/ai-story-os-requirements.md)。
