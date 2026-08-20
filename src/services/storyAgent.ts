@@ -1,7 +1,7 @@
 import { requestChatCompletion } from "./model";
 import type { ModelConfig, SavedChapter, StoryAnalysis, StoryBeat, StoryChange, StoryCharacter, StoryCheck, StoryEvidence, StoryMemory, StoryMemoryKind, StoryRelation } from "../types/story";
 
-type AgentPayload = Omit<StoryAnalysis, "updatedAt" | "source" | "changes">;
+type AgentPayload = Omit<StoryAnalysis, "updatedAt" | "source" | "changes" | "decisions" | "dismissedCheckIds">;
 
 const memoryKinds: StoryMemoryKind[] = ["character", "relationship", "setting", "timeline", "foreshadowing"];
 
@@ -62,13 +62,14 @@ function deriveChanges(memories: StoryMemory[], checks: StoryCheck[], previous?:
   return [...memoryChanges, ...warnings].slice(0, 8);
 }
 
-export function fallbackAnalysis(chapterList: SavedChapter[]): StoryAnalysis {
+export function fallbackAnalysis(chapterList: SavedChapter[], previous?: StoryAnalysis): StoryAnalysis {
   const latest = chapterList[chapterList.length - 1];
   // Chinese prose cannot be safely treated as named entities with a short regex.
   // Until a model is configured, prefer an empty index over incorrect character facts.
   const names: string[] = [];
   const evidence = sourceExcerpt(latest);
-  const memories: StoryMemory[] = names.map((name) => ({ id: memoryId("character", name), kind: "character", title: name, detail: "已在保存内容中出现，等待模型识别角色与状态。", status: "pending", evidence, updatedAt: new Date().toISOString() }));
+  const retainedMemories = (previous?.memories || []).filter((memory) => memory.status === "confirmed" || memory.origin === "author");
+  const memories: StoryMemory[] = retainedMemories.length ? retainedMemories : names.map((name) => ({ id: memoryId("character", name), kind: "character", title: name, detail: "已在保存内容中出现，等待模型识别角色与状态。", status: "pending", evidence, updatedAt: new Date().toISOString() }));
   const checks: StoryCheck[] = [{ id: "check:local-model", severity: "suggestion", title: "尚未进行语义检查", detail: "配置模型后，可根据已保存章节检查人物、时间线与设定一致性。", evidence: [] }];
   return {
     summary: latest ? `已保存「${latest.title}」。配置模型后，故事 Agent 会把已保存章节归纳为完整剧情摘要。` : "尚未保存章节。",
@@ -77,8 +78,10 @@ export function fallbackAnalysis(chapterList: SavedChapter[]): StoryAnalysis {
     relations: [],
     warnings: ["未配置模型，当前仅建立本地文本索引。"],
     memories,
-    changes: memories.map((memory) => ({ id: `change:added:${memory.id}`, type: "added" as const, title: `发现人物「${memory.title}」`, detail: memory.detail, evidence: memory.evidence })),
+    changes: retainedMemories.length ? [] : memories.map((memory) => ({ id: `change:added:${memory.id}`, type: "added" as const, title: `发现人物「${memory.title}」`, detail: memory.detail, evidence: memory.evidence })),
     checks,
+    dismissedCheckIds: previous?.dismissedCheckIds || [],
+    decisions: previous?.decisions || [],
     updatedAt: new Date().toISOString(),
     source: "local",
   };
@@ -101,7 +104,7 @@ function parseAgentAnalysis(raw: string, chapterList: SavedChapter[], previous?:
 }
 
 export async function analyzeSavedChapters(config: ModelConfig, chapterList: SavedChapter[], previous?: StoryAnalysis): Promise<StoryAnalysis> {
-  if (!config.apiKey) return fallbackAnalysis(chapterList);
+  if (!config.apiKey) return fallbackAnalysis(chapterList, previous);
   const corpus = chapterList.map((chapter) => `【第${chapter.id}章 ${chapter.title}】\n${chapter.content}`).join("\n\n");
   const content = await requestChatCompletion(config, {
     temperature: 0.25,
@@ -113,5 +116,5 @@ export async function analyzeSavedChapters(config: ModelConfig, chapterList: Sav
     ],
   });
   const parsed = parseAgentAnalysis(content, chapterList, previous);
-  return { ...parsed, changes: deriveChanges(parsed.memories || [], parsed.checks || [], previous), dismissedCheckIds: previous?.dismissedCheckIds || [], updatedAt: new Date().toISOString(), source: "agent" };
+  return { ...parsed, changes: deriveChanges(parsed.memories || [], parsed.checks || [], previous), dismissedCheckIds: previous?.dismissedCheckIds || [], decisions: previous?.decisions || [], updatedAt: new Date().toISOString(), source: "agent" };
 }

@@ -24,9 +24,10 @@ type WorkshopProps = {
   library: LibraryItem[];
   skills: WritingSkill[];
   onWrite: () => void;
+  onAdoptDecision: (round: WorkshopRound) => string;
 };
 
-export function CreativeWorkshop({ projectId, config, project, chapters, analysis, library, skills, onWrite }: WorkshopProps) {
+export function CreativeWorkshop({ projectId, config, project, chapters, analysis, library, skills, onWrite, onAdoptDecision }: WorkshopProps) {
   const [brief, setBrief] = useState("");
   const [rounds, setRounds] = useState<WorkshopRound[]>(() => readWorkshopRounds(projectId));
   const [busy, setBusy] = useState(false);
@@ -112,6 +113,11 @@ export function CreativeWorkshop({ projectId, config, project, chapters, analysi
     if (!activeRound) return;
     replaceRound({ ...activeRound, status: "abandoned", nextPhase: undefined, updatedAt: new Date().toISOString() });
   };
+  const adoptDecision = (round: WorkshopRound) => {
+    const decisionId = onAdoptDecision(round);
+    if (!decisionId || round.decisionId) return;
+    replaceRound({ ...round, decisionId, updatedAt: new Date().toISOString() });
+  };
 
   return <div className="workshop-workspace">
     <header className="workshop-header"><div><span>Pi Agent 创作工作组</span><h2>围绕同一章，先讨论，再动笔</h2><p>作者掌握节奏：每步都可暂停、插话，之后再继续；结论不会自动改写正文。</p></div><button className="secondary-action" onClick={onWrite}><BookOpen size={16} />返回写作</button></header>
@@ -121,7 +127,7 @@ export function CreativeWorkshop({ projectId, config, project, chapters, analysi
     {activeRound && <ActiveControls phase={currentPhase} busy={busy} onContinue={() => currentPhase && void runPhase(activeRound, currentPhase)} onInterrupt={interruptCurrentTurn} onAbandon={abandonRound} />}
     {activeRound && <InterruptPanel target={target} busy={busy} question={question} onTargetChange={setTarget} onQuestionChange={setQuestion} onSend={askAgent} />}
     {error && <p className="workshop-error">{error}</p>}
-    {visibleRound ? <Transcript round={visibleRound} /> : <section className="workshop-empty"><SealCheck size={24} weight="duotone" /><p>还没有圆桌记录。启动后，写手先提交提案；每一步都会停下来，等你决定是追问、补充，还是继续。</p></section>}
+    {visibleRound ? <Transcript round={visibleRound} onAdoptDecision={adoptDecision} /> : <section className="workshop-empty"><SealCheck size={24} weight="duotone" /><p>还没有圆桌记录。启动后，写手先提交提案；每一步都会停下来，等你决定是追问、补充，还是继续。</p></section>}
   </div>;
 }
 
@@ -142,7 +148,7 @@ function InterruptPanel({ target, busy, question, onTargetChange, onQuestionChan
   return <section className="workshop-interrupt"><header><div><ChatCircleDots size={17} weight="fill" /><b>作者插话</b><span>正在对 {name} 说话</span></div><div className="agent-picker">{agents.map((agent) => <button key={agent.role} className={target === agent.role ? "selected" : ""} onClick={() => onTargetChange(agent.role)} disabled={busy}>{agent.name}</button>)}</div></header><div><textarea value={question} onChange={(event) => onQuestionChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); onSend(); } }} placeholder="补充约束、质疑建议，或让这位 Agent 解释它的判断…" /><button onClick={onSend} disabled={!question.trim() || busy} aria-label="发送给当前 Agent"><PaperPlaneTilt size={18} weight="fill" /></button></div></section>;
 }
 
-function Transcript({ round }: { round: WorkshopRound }) {
+function Transcript({ round, onAdoptDecision }: { round: WorkshopRound; onAdoptDecision: (round: WorkshopRound) => void }) {
   const label = round.status === "active" ? "当前圆桌" : round.status === "abandoned" ? "已结束的圆桌" : "已完成圆桌";
-  return <section className="workshop-transcript"><header><div><span>{label}</span><h3>{round.brief}</h3></div><time>{new Date(round.updatedAt || round.createdAt).toLocaleString("zh-CN")}</time></header><div className="transcript-list">{round.messages.map((message) => <article className={`transcript-message ${message.role}`} key={message.id}><div className="message-role">{message.role === "author" ? "作者" : agents.find((agent) => agent.role === message.role)?.name}<span>{phaseLabels[message.phase]}</span></div><p>{message.content}</p></article>)}</div></section>;
+  return <section className="workshop-transcript"><header><div><span>{label}</span><h3>{round.brief}</h3></div><div className="transcript-heading-actions"><time>{new Date(round.updatedAt || round.createdAt).toLocaleString("zh-CN")}</time>{round.status === "completed" && (round.decisionId ? <b className="decision-adopted"><SealCheck size={14} weight="fill" />已采纳</b> : <button className="secondary-action adopt-decision" onClick={() => onAdoptDecision(round)}><SealCheck size={15} weight="fill" />采纳为创作决定</button>)}</div></header><div className="transcript-list">{round.messages.map((message) => <article className={`transcript-message ${message.role}`} key={message.id}><div className="message-role">{message.role === "author" ? "作者" : agents.find((agent) => agent.role === message.role)?.name}<span>{phaseLabels[message.phase]}</span></div><p>{message.content}</p></article>)}</div></section>;
 }

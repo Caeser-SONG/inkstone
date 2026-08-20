@@ -93,6 +93,7 @@ export type WorkshopRound = {
   updatedAt: string;
   status: "active" | "completed" | "abandoned";
   nextPhase?: WorkshopPhase;
+  decisionId?: string;
   messages: WorkshopMessage[];
 };
 
@@ -151,6 +152,14 @@ export type StoryCheck = {
   evidence: StoryEvidence[];
 };
 
+export type StoryDecision = {
+  id: string;
+  title: string;
+  detail: string;
+  sourceRoundId: string;
+  createdAt: string;
+};
+
 export type ChapterGuide = {
   chapterId: number;
   goal: string;
@@ -170,6 +179,7 @@ export type StoryAnalysis = {
   changes?: StoryChange[];
   checks?: StoryCheck[];
   dismissedCheckIds?: string[];
+  decisions?: StoryDecision[];
   updatedAt: string;
   source: "agent" | "local";
 };

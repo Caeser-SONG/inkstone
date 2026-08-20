@@ -17,6 +17,7 @@ export function buildLayeredMemory({ project, question, chapters, analysis, libr
   const working = [
     analysis?.characters.length ? `人物状态：${analysis.characters.map((item) => `${item.name}（${item.role}；${item.state}）`).join("；")}` : "人物状态：暂无结构化人物卡。",
     analysis?.beats.length ? `情节节点：${analysis.beats.map((item) => `${item.status === "next" ? "后续" : "已发生"}·${item.title}：${item.detail}`).join("；")}` : "情节节点：暂无。",
+    analysis?.decisions?.length ? `作者已采纳的创作决定：${analysis.decisions.slice(0, 6).map((item) => `${item.title}：${item.detail}`).join("；")}` : "作者已采纳的创作决定：暂无。",
     skills.filter((skill) => skill.enabled).length ? `当前 Skills：${skills.filter((skill) => skill.enabled).map((skill) => `《${skill.name}》`).join("、")}` : "当前 Skills：无。",
   ].join("\n");
   const relevantChapters = [...chapters].sort((a, b) => score(`${b.title}\n${b.content}`, question) - score(`${a.title}\n${a.content}`, question) || b.savedAt.localeCompare(a.savedAt)).slice(0, 3);
