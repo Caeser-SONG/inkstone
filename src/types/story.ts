@@ -131,6 +131,8 @@ export type StoryMemory = {
   status: StoryMemoryStatus;
   evidence: StoryEvidence[];
   updatedAt: string;
+  /** Author-edited facts are retained when the Agent refreshes its extraction. */
+  origin?: "agent" | "author";
 };
 
 export type StoryChange = {
@@ -167,6 +169,7 @@ export type StoryAnalysis = {
   memories?: StoryMemory[];
   changes?: StoryChange[];
   checks?: StoryCheck[];
+  dismissedCheckIds?: string[];
   updatedAt: string;
   source: "agent" | "local";
 };

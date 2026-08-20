@@ -35,17 +35,18 @@ function parseMemories(raw: unknown, chapterList: SavedChapter[], previous?: Sto
     if (!memoryKinds.includes(memory.kind as StoryMemoryKind) || typeof memory.title !== "string" || typeof memory.detail !== "string") return [];
     const id = memoryId(memory.kind as StoryMemoryKind, memory.title);
     const existing = previousById.get(id);
+    if (existing?.origin === "author") return [{ ...existing, updatedAt: existing.updatedAt }];
     return [{ id, kind: memory.kind as StoryMemoryKind, title: memory.title.trim(), detail: memory.detail.trim(), status: existing?.status || "pending", evidence: evidenceFrom(chapterList, memory.evidence), updatedAt: new Date().toISOString() }];
   }).filter((memory, index, list) => Boolean(memory.title && memory.detail) && list.findIndex((candidate) => candidate.id === memory.id) === index).slice(0, 30);
 }
 
 function parseChecks(raw: unknown, chapterList: SavedChapter[]): StoryCheck[] {
   if (!Array.isArray(raw)) return [];
-  return raw.flatMap((entry, index): StoryCheck[] => {
+  return raw.flatMap((entry): StoryCheck[] => {
     if (!entry || typeof entry !== "object") return [];
     const check = entry as { severity?: unknown; title?: unknown; detail?: unknown; evidence?: unknown };
     if (!(["blocker", "attention", "suggestion"] as const).includes(check.severity as StoryCheck["severity"]) || typeof check.title !== "string" || typeof check.detail !== "string") return [];
-    return [{ id: `check:${index}:${normalizeKey(check.title)}`, severity: check.severity as StoryCheck["severity"], title: check.title.trim(), detail: check.detail.trim(), evidence: evidenceFrom(chapterList, check.evidence) }];
+    return [{ id: `check:${normalizeKey(check.title)}`, severity: check.severity as StoryCheck["severity"], title: check.title.trim(), detail: check.detail.trim(), evidence: evidenceFrom(chapterList, check.evidence) }];
   }).filter((check) => Boolean(check.title && check.detail)).slice(0, 8);
 }
 
@@ -112,5 +113,5 @@ export async function analyzeSavedChapters(config: ModelConfig, chapterList: Sav
     ],
   });
   const parsed = parseAgentAnalysis(content, chapterList, previous);
-  return { ...parsed, changes: deriveChanges(parsed.memories || [], parsed.checks || [], previous), updatedAt: new Date().toISOString(), source: "agent" };
+  return { ...parsed, changes: deriveChanges(parsed.memories || [], parsed.checks || [], previous), dismissedCheckIds: previous?.dismissedCheckIds || [], updatedAt: new Date().toISOString(), source: "agent" };
 }
