@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { BookOpen, ChatCircleDots, Eye, NotePencil, PaperPlaneTilt, Pause, PencilSimpleLine, Play, SealCheck, X } from "@phosphor-icons/react";
 import { nextWorkshopPhase, runWorkshopStep, talkToWorkshopAgent } from "../services/creativeWorkshop";
 import { readWorkshopRounds, saveWorkshopRounds } from "../services/storage";
-import type { LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WorkshopAgentRole, WorkshopMessage, WorkshopPhase, WorkshopRound, WritingSkill } from "../types/story";
+import type { CreativeCharter, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WorkshopAgentRole, WorkshopMessage, WorkshopPhase, WorkshopRound, WritingSkill } from "../types/story";
 
 const agents: Array<{ role: WorkshopAgentRole; name: string; label: string; icon: typeof NotePencil }> = [
   { role: "writer", name: "写手", label: "提出与修订", icon: NotePencil },
@@ -23,11 +23,12 @@ type WorkshopProps = {
   analysis: StoryAnalysis | null;
   library: LibraryItem[];
   skills: WritingSkill[];
+  charter?: CreativeCharter;
   onWrite: () => void;
   onAdoptDecision: (round: WorkshopRound) => string;
 };
 
-export function CreativeWorkshop({ projectId, config, project, chapters, analysis, library, skills, onWrite, onAdoptDecision }: WorkshopProps) {
+export function CreativeWorkshop({ projectId, config, project, chapters, analysis, library, skills, charter, onWrite, onAdoptDecision }: WorkshopProps) {
   const [brief, setBrief] = useState("");
   const [rounds, setRounds] = useState<WorkshopRound[]>(() => readWorkshopRounds(projectId));
   const [busy, setBusy] = useState(false);
@@ -35,7 +36,7 @@ export function CreativeWorkshop({ projectId, config, project, chapters, analysi
   const [question, setQuestion] = useState("");
   const [target, setTarget] = useState<WorkshopAgentRole>("writer");
   const requestToken = useRef(0);
-  const context = { project, chapters, analysis, library, skills };
+  const context = { project, chapters, analysis, library, skills, charter };
 
   useEffect(() => {
     setRounds(readWorkshopRounds(projectId));

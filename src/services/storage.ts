@@ -1,6 +1,6 @@
 import { chapters as demoChapters } from "../data/demo";
 import { initializeNativeStore, removeNativeEntry, writeNativeChapter, writeNativeEntry, type StorageLocation } from "./nativeStore";
-import type { ActiveWritingSession, ChapterGuide, ChapterVersion, EditorPreferences, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WorkshopRound, WritingSession, WritingSkill } from "../types/story";
+import type { ActiveWritingSession, ChapterGuide, ChapterVersion, CreativeCharter, EditorPreferences, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WorkshopRound, WritingSession, WritingSkill } from "../types/story";
 
 const modelConfigKey = "inkstone.model-config";
 const projectsKey = "inkstone.projects";
@@ -74,7 +74,9 @@ const activeWritingSessionKey = (projectId: string) => `inkstone.project.${proje
 const writingSessionsKey = (projectId: string) => `inkstone.project.${projectId}.writing-sessions`;
 const workshopRoundsKey = (projectId: string) => `inkstone.project.${projectId}.workshop-rounds`;
 const chapterGuideKey = (projectId: string, chapterId: number) => `inkstone.project.${projectId}.chapter.${chapterId}.guide`;
+const creativeCharterKey = (projectId: string) => `inkstone.project.${projectId}.creative-charter`;
 const defaultEditorPreferences: EditorPreferences = { paragraphStyle: "body", fontFamily: "songti", fontSize: 17 };
+const defaultCreativeCharter: CreativeCharter = { perspective: "", tone: "", audience: "", pacing: "", boundaries: "", prohibitions: "", updatedAt: "" };
 
 export function readSavedChapters(projectId: string): SavedChapter[] {
   const scoped = readJson<SavedChapter[] | null>(savedChaptersKey(projectId), null);
@@ -96,6 +98,9 @@ export function readChapterGuide(projectId: string, chapterId: number): ChapterG
   return readJson<ChapterGuide | null>(chapterGuideKey(projectId, chapterId), null);
 }
 export function saveChapterGuide(projectId: string, guide: ChapterGuide) { writeValue(chapterGuideKey(projectId, guide.chapterId), JSON.stringify(guide)); }
+
+export function readCreativeCharter(projectId: string) { return { ...defaultCreativeCharter, ...readJson<Partial<CreativeCharter>>(creativeCharterKey(projectId), {}) }; }
+export function saveCreativeCharter(projectId: string, charter: CreativeCharter) { writeValue(creativeCharterKey(projectId), JSON.stringify(charter)); }
 
 export function readChapterHistory(projectId: string, chapterId: number) { return readJson<ChapterVersion[]>(chapterHistoryKey(projectId, chapterId), []); }
 export function saveChapterVersion(projectId: string, version: ChapterVersion) {

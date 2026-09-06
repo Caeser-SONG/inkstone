@@ -1,4 +1,4 @@
-import type { LayeredMemory, LibraryItem, NovelProject, SavedChapter, StoryAnalysis, WritingSkill } from "../types/story";
+import type { CreativeCharter, LayeredMemory, LibraryItem, NovelProject, SavedChapter, StoryAnalysis, WritingSkill } from "../types/story";
 
 const excerpt = (text: string, length: number) => text.replace(/\s+/g, " ").trim().slice(0, length);
 
@@ -8,9 +8,20 @@ function score(text: string, query: string) {
 }
 
 /** Creates a bounded three-layer context: durable project facts, working story state, and retrieved source excerpts. */
-export function buildLayeredMemory({ project, question, chapters, analysis, library, skills }: { project?: NovelProject; question: string; chapters: SavedChapter[]; analysis: StoryAnalysis | null; library: LibraryItem[]; skills: WritingSkill[] }): LayeredMemory {
+export function charterText(charter?: CreativeCharter) {
+  if (!charter) return "";
+  const rules = [
+    ["叙述视角与语言", charter.perspective], ["文风与情绪", charter.tone], ["目标读者", charter.audience],
+    ["章节节奏与章末", charter.pacing], ["角色底线与设定边界", charter.boundaries], ["禁区与禁用表达", charter.prohibitions],
+  ].filter(([, value]) => value.trim()).map(([label, value]) => `${label}：${value.trim()}`);
+  return rules.length ? rules.join("；") : "";
+}
+
+export function buildLayeredMemory({ project, question, chapters, analysis, library, skills, charter }: { project?: NovelProject; question: string; chapters: SavedChapter[]; analysis: StoryAnalysis | null; library: LibraryItem[]; skills: WritingSkill[]; charter?: CreativeCharter }): LayeredMemory {
+  const charterRules = charterText(charter);
   const projectLayer = [
     `作品：${project?.title || "未命名作品"}`,
+    charterRules ? `作者创作宪章（优先遵守，不得用它补写既有事实）：${charterRules}` : "作者创作宪章：尚未设置。",
     analysis?.summary ? `故事总览：${analysis.summary}` : "故事总览：尚未生成，不能把推测当作既有事实。",
     analysis?.warnings.length ? `一致性提醒：${analysis.warnings.join("；")}` : "一致性提醒：暂无。",
   ].join("\n");

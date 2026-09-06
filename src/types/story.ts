@@ -168,6 +168,17 @@ export type ChapterGuide = {
   updatedAt: string;
 };
 
+/** Author-controlled constraints applied across all Pi Agent writing contexts. */
+export type CreativeCharter = {
+  perspective: string;
+  tone: string;
+  audience: string;
+  pacing: string;
+  boundaries: string;
+  prohibitions: string;
+  updatedAt: string;
+};
+
 export type StoryAnalysis = {
   summary: string;
   beats: StoryBeat[];

@@ -3,7 +3,7 @@ import { Type, type Model } from "@earendil-works/pi-ai";
 import { streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
 import { buildLayeredMemory, enabledSkillInstructions } from "./memory";
 import { searchPublicWeb } from "./webSearch";
-import type { LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WritingSkill } from "../types/story";
+import type { CreativeCharter, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WritingSkill } from "../types/story";
 
 type PiRequest = {
   system: string;
@@ -16,6 +16,7 @@ type PiRequest = {
   analysis?: StoryAnalysis | null;
   library?: LibraryItem[];
   skills?: WritingSkill[];
+  charter?: CreativeCharter;
 };
 
 const emptyCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
@@ -57,7 +58,7 @@ function memoryTools(memory: ReturnType<typeof buildLayeredMemory>): AgentTool[]
 /** Pi Agent Core runtime for all OpenAI-compatible writing operations. */
 export async function runPiAgent(config: ModelConfig, request: PiRequest) {
   const skills = request.skills || [];
-  const memory = buildLayeredMemory({ project: request.project, question: request.prompt, chapters: request.chapters || [], analysis: request.analysis || null, library: request.library || [], skills });
+  const memory = buildLayeredMemory({ project: request.project, question: request.prompt, chapters: request.chapters || [], analysis: request.analysis || null, library: request.library || [], skills, charter: request.charter });
   const systemPrompt = [
     request.system,
     "\n你运行在墨舟的 Pi Agent Core 中。已保存正文才是事实来源；不确定时明确标注，不得虚构既有剧情。需要公开书目、作者或评论资料时，可调用 web_search；不得请求或分析受版权保护的小说全文。",

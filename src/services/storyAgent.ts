@@ -1,5 +1,5 @@
 import { requestChatCompletion } from "./model";
-import type { ModelConfig, SavedChapter, StoryAnalysis, StoryBeat, StoryChange, StoryCharacter, StoryCheck, StoryEvidence, StoryMemory, StoryMemoryKind, StoryRelation } from "../types/story";
+import type { CreativeCharter, ModelConfig, SavedChapter, StoryAnalysis, StoryBeat, StoryChange, StoryCharacter, StoryCheck, StoryEvidence, StoryMemory, StoryMemoryKind, StoryRelation } from "../types/story";
 
 type AgentPayload = Omit<StoryAnalysis, "updatedAt" | "source" | "changes" | "decisions" | "dismissedCheckIds">;
 
@@ -103,7 +103,7 @@ function parseAgentAnalysis(raw: string, chapterList: SavedChapter[], previous?:
   };
 }
 
-export async function analyzeSavedChapters(config: ModelConfig, chapterList: SavedChapter[], previous?: StoryAnalysis): Promise<StoryAnalysis> {
+export async function analyzeSavedChapters(config: ModelConfig, chapterList: SavedChapter[], previous?: StoryAnalysis, charter?: CreativeCharter): Promise<StoryAnalysis> {
   if (!config.apiKey) return fallbackAnalysis(chapterList, previous);
   const corpus = chapterList.map((chapter) => `【第${chapter.id}章 ${chapter.title}】\n${chapter.content}`).join("\n\n");
   const content = await requestChatCompletion(config, {
@@ -111,9 +111,10 @@ export async function analyzeSavedChapters(config: ModelConfig, chapterList: Sav
     maxTokens: 1800,
     jsonResponse: true,
     messages: [
-      { role: "system", content: "你是长篇中文小说的故事编辑 Agent。只能根据提供的已保存章节做整理，不得编造。返回 JSON：summary(string), beats([{title,detail,status:done|next}]), characters([{name,role,state}]), relations([{from,to,label}]), warnings(string[]), memories([{kind:character|relationship|setting|timeline|foreshadowing,title,detail,evidence:[{chapterId,excerpt}]}]), checks([{severity:blocker|attention|suggestion,title,detail,evidence:[{chapterId,excerpt}]}])。evidence.excerpt 必须逐字摘自对应章节，无法提供证据时不要输出该 memory 或 check。summary 简洁描述已发生剧情；next 仅在文本明确指向后续行动时使用。" },
+      { role: "system", content: "你是长篇中文小说的故事编辑 Agent。只能根据提供的已保存章节做整理，不得编造。作者创作宪章仅可用于发现文本与既定写作边界的冲突，绝不能把宪章当作故事事实。返回 JSON：summary(string), beats([{title,detail,status:done|next}]), characters([{name,role,state}]), relations([{from,to,label}]), warnings(string[]), memories([{kind:character|relationship|setting|timeline|foreshadowing,title,detail,evidence:[{chapterId,excerpt}]}]), checks([{severity:blocker|attention|suggestion,title,detail,evidence:[{chapterId,excerpt}]}])。evidence.excerpt 必须逐字摘自对应章节，无法提供证据时不要输出该 memory 或 check。summary 简洁描述已发生剧情；next 仅在文本明确指向后续行动时使用。" },
       { role: "user", content: corpus },
     ],
+    charter,
   });
   const parsed = parseAgentAnalysis(content, chapterList, previous);
   return { ...parsed, changes: deriveChanges(parsed.memories || [], parsed.checks || [], previous), dismissedCheckIds: previous?.dismissedCheckIds || [], decisions: previous?.decisions || [], updatedAt: new Date().toISOString(), source: "agent" };

@@ -1,7 +1,7 @@
 import { runPiAgent } from "./piAgent";
-import type { LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WorkshopAgentRole, WorkshopMessage, WorkshopPhase, WritingSkill } from "../types/story";
+import type { CreativeCharter, LibraryItem, ModelConfig, NovelProject, SavedChapter, StoryAnalysis, WorkshopAgentRole, WorkshopMessage, WorkshopPhase, WritingSkill } from "../types/story";
 
-export type WorkshopContext = { project?: NovelProject; chapters: SavedChapter[]; analysis: StoryAnalysis | null; library: LibraryItem[]; skills: WritingSkill[] };
+export type WorkshopContext = { project?: NovelProject; chapters: SavedChapter[]; analysis: StoryAnalysis | null; library: LibraryItem[]; skills: WritingSkill[]; charter?: CreativeCharter };
 
 const phaseRoles: Record<WorkshopPhase, WorkshopAgentRole> = { proposal: "writer", edit: "editor", response: "reader", revision: "writer" };
 const roleNames: Record<WorkshopAgentRole | "author", string> = { writer: "写手", editor: "编辑", reader: "读者", author: "作者" };
