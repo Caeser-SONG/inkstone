@@ -467,18 +467,12 @@ function App() {
   };
 
   const generateContinuation = async () => {
+    if (!modelConfig.apiKey.trim()) {
+      setNotice("请先在模型与偏好设置中配置 API Key，续写不会修改正文。");
+      return;
+    }
     setAiBusy(true);
     try {
-      if (!modelConfig.apiKey) {
-        const continuation =
-          "\n\n林见山的目光落在那半枚铜钱上，终于松开了紧攥着抽屉的手。\n\n“南渡口今晚会来一班不该靠岸的船。”他说，“如果你还想知道沈舟去了哪里，就别让任何人看见这枚铜钱。”";
-        window.setTimeout(() => {
-          setDraft((current) => current + continuation);
-          setNotice("未填写 API Key，已插入演示续写。");
-          setAiBusy(false);
-        }, 620);
-        return;
-      }
       const continuation = await generateNovelContinuation(modelConfig, draft, {
         project: activeProject,
         chapters: savedChapters,
@@ -494,7 +488,7 @@ function App() {
         `续写失败：${error instanceof Error ? error.message : "未知错误"}`,
       );
     } finally {
-      if (modelConfig.apiKey) setAiBusy(false);
+      setAiBusy(false);
     }
   };
 
