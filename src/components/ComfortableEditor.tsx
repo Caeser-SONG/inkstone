@@ -27,6 +27,7 @@ function escapeHtml(text: string) {
 }
 
 function toEditorHtml(text: string) {
+  if (!text.trim()) return "";
   const paragraphs = text.replace(/\r\n/g, "\n").split("\n\n");
   return paragraphs
     .map(
@@ -122,23 +123,30 @@ export function ComfortableEditor({
           </h1>
           <p>2026年8月8日 · 本章草稿</p>
         </header>
-        <div
-          ref={editorRef}
-          className="text-editor"
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
-          aria-multiline="true"
-          aria-label="正文内容"
-          spellCheck={false}
-          style={editorStyle}
-          onInput={(event) => {
-            const nextDraft = editorText(event.currentTarget);
-            lastTypedDraftRef.current = nextDraft;
-            setDraft(nextDraft);
-            resizeEditor();
-          }}
-        />
+        <div className="editor-shell">
+          {!draft.trim() && (
+            <span className="editor-placeholder" aria-hidden="true">
+              开始写作…
+            </span>
+          )}
+          <div
+            ref={editorRef}
+            className="text-editor"
+            contentEditable
+            suppressContentEditableWarning
+            role="textbox"
+            aria-multiline="true"
+            aria-label="正文内容"
+            spellCheck={false}
+            style={editorStyle}
+            onInput={(event) => {
+              const nextDraft = editorText(event.currentTarget);
+              lastTypedDraftRef.current = nextDraft;
+              setDraft(nextDraft);
+              resizeEditor();
+            }}
+          />
+        </div>
         <div className="writing-breathing-room" aria-hidden="true" />
       </article>
     </div>
